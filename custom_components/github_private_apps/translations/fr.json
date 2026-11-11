@@ -1,0 +1,84 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion à GitHub",
+        "description": "Saisis le Client ID d'une OAuth App GitHub avec **Device Flow** activé (voir le README). Tu te connecteras ensuite sur github.com avec un code à usage unique.",
+        "data": {
+          "client_id": "Client ID de l'OAuth App"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Se reconnecter à GitHub",
+        "description": "GitHub n'accepte plus l'accès enregistré. Reconnecte-toi : les apps installées restent installées, seul l'identifiant change."
+      },
+      "repositories": {
+        "title": "Dépôts d'apps privés",
+        "description": "Choisis les dépôts privés à ajouter à la boutique. {invalid}",
+        "data": {
+          "repositories": "Dépôts"
+        }
+      }
+    },
+    "progress": {
+      "wait_for_device": "Ouvre {url} et saisis le code **{code}**. Cette fenêtre continue toute seule une fois l'accès autorisé."
+    },
+    "error": {
+      "not_app_repository": "Ce ne sont pas des dépôts d'apps (pas de repository.yaml à la racine) : {invalid}",
+      "client_id_required": "Saisis le Client ID de ton OAuth App GitHub.",
+      "cannot_connect": "Impossible de joindre GitHub. Réessaie."
+    },
+    "abort": {
+      "no_supervisor": "Cette intégration nécessite Home Assistant OS ou Supervised (un Supervisor).",
+      "device_flow_failed": "GitHub a refusé de démarrer la connexion. Vérifie le Client ID et que Device Flow est activé sur l'OAuth App.",
+      "login_failed": "Connexion GitHub échouée ou expirée.",
+      "cannot_list": "Impossible de lister tes dépôts GitHub.",
+      "wrong_account": "Tu t'es connecté avec un autre compte GitHub que celui configuré.",
+      "already_configured": "Déjà configuré.",
+      "single_instance_allowed": "Déjà configuré.",
+      "reauth_successful": "Reconnecté. Les dépôts et le registre utilisent maintenant le nouvel accès."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "GitHub Private Apps",
+        "menu_options": {
+          "add": "Ajouter des dépôts",
+          "remove": "Retirer des dépôts"
+        }
+      },
+      "add": {
+        "title": "Ajouter des dépôts",
+        "description": "Choisis les dépôts privés à ajouter à la boutique. {invalid}",
+        "data": {
+          "repositories": "Dépôts"
+        }
+      },
+      "remove": {
+        "title": "Retirer des dépôts",
+        "description": "Un dépôt dont une app est installée ne peut pas être retiré. {in_use}",
+        "data": {
+          "repositories": "Dépôts"
+        }
+      }
+    },
+    "error": {
+      "not_app_repository": "Ce ne sont pas des dépôts d'apps (pas de repository.yaml à la racine) : {invalid}",
+      "in_use": "Désinstalle d'abord les apps de ces dépôts : {in_use}",
+      "supervisor_error": "Le Supervisor a refusé la demande. Voir les journaux.",
+      "cannot_connect": "Impossible de joindre GitHub. Réessaie."
+    },
+    "abort": {
+      "cannot_list": "Impossible de lister tes dépôts GitHub.",
+      "nothing_to_add": "Tous tes dépôts privés sont déjà ajoutés.",
+      "nothing_to_remove": "Aucun dépôt configuré."
+    }
+  },
+  "issues": {
+    "registry_conflict": {
+      "title": "{registry} a déjà un autre identifiant",
+      "description": "Le Supervisor a déjà un identifiant {registry} pour l'utilisateur `{user}`, GitHub Private Apps ne l'a donc pas remplacé par `{login}`. Supprime ce registre dans Paramètres > Applications > Boutique > Registres si tes images privées ont besoin de la connexion GitHub, puis recharge GitHub Private Apps."
+    }
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sign in to GitHub",
+        "description": "Enter the Client ID of a GitHub OAuth App with **Device Flow** enabled (see the README). You will then sign in on github.com with a one-time code.",
+        "data": {
+          "client_id": "OAuth App Client ID"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to GitHub again",
+        "description": "GitHub no longer accepts the saved access. Sign in again: installed apps stay installed, only the credential changes."
+      },
+      "repositories": {
+        "title": "Private app repositories",
+        "description": "Select the private repositories to add to the app store. {invalid}",
+        "data": {
+          "repositories": "Repositories"
+        }
+      }
+    },
+    "progress": {
+      "wait_for_device": "Open {url} and enter the code **{code}**. This window continues by itself once you approve access."
+    },
+    "error": {
+      "not_app_repository": "Not app repositories (no repository.yaml at the root): {invalid}",
+      "client_id_required": "Enter the Client ID of your GitHub OAuth App.",
+      "cannot_connect": "Could not reach GitHub. Try again."
+    },
+    "abort": {
+      "no_supervisor": "This integration needs Home Assistant OS or Supervised (a Supervisor).",
+      "device_flow_failed": "GitHub refused to start the sign-in. Check the Client ID and that Device Flow is enabled on the OAuth App.",
+      "login_failed": "GitHub sign-in failed or expired.",
+      "cannot_list": "Could not list your GitHub repositories.",
+      "wrong_account": "You signed in with a different GitHub account than the one configured.",
+      "already_configured": "Already configured.",
+      "single_instance_allowed": "Already configured.",
+      "reauth_successful": "Signed in again. Repositories and registry now use the new access."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "GitHub Private Apps",
+        "menu_options": {
+          "add": "Add repositories",
+          "remove": "Remove repositories"
+        }
+      },
+      "add": {
+        "title": "Add repositories",
+        "description": "Select private repositories to add to the app store. {invalid}",
+        "data": {
+          "repositories": "Repositories"
+        }
+      },
+      "remove": {
+        "title": "Remove repositories",
+        "description": "Repositories with installed apps cannot be removed. {in_use}",
+        "data": {
+          "repositories": "Repositories"
+        }
+      }
+    },
+    "error": {
+      "not_app_repository": "Not app repositories (no repository.yaml at the root): {invalid}",
+      "in_use": "Uninstall the apps from these repositories first: {in_use}",
+      "supervisor_error": "The Supervisor refused the request. See the logs.",
+      "cannot_connect": "Could not reach GitHub. Try again."
+    },
+    "abort": {
+      "cannot_list": "Could not list your GitHub repositories.",
+      "nothing_to_add": "All your private repositories are already added.",
+      "nothing_to_remove": "No repository configured."
+    }
+  },
+  "issues": {
+    "registry_conflict": {
+      "title": "{registry} already has another credential",
+      "description": "The Supervisor already holds a {registry} credential for user `{user}`, so GitHub Private Apps did not replace it with `{login}`. Remove that registry in Settings > Apps > Store > Registries if your private images need the GitHub sign-in, then reload GitHub Private Apps."
+    }
+  }
+}
