@@ -38,6 +38,7 @@ from .const import (
     CONF_USER_ID,
     DEFAULT_CLIENT_ID,
     DOMAIN,
+    READONLY_DOCS_URL,
 )
 from .github import DeviceCode, GitHubAuthError, GitHubClient, GitHubDeviceFlow, GitHubError
 from .supervisor import SupervisorClient, SupervisorError
@@ -93,7 +94,11 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if not os.environ.get("SUPERVISOR"):
             return self.async_abort(reason="no_supervisor")
-        return self.async_show_menu(step_id="user", menu_options=["device", "token"])
+        return self.async_show_menu(
+            step_id="user",
+            menu_options=["device", "token"],
+            description_placeholders={"docs_url": READONLY_DOCS_URL},
+        )
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         self._client_id = entry_data.get(CONF_CLIENT_ID) or DEFAULT_CLIENT_ID
@@ -102,7 +107,11 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        return self.async_show_menu(step_id="reauth_confirm", menu_options=["device", "token"])
+        return self.async_show_menu(
+            step_id="reauth_confirm",
+            menu_options=["device", "token"],
+            description_placeholders={"docs_url": READONLY_DOCS_URL},
+        )
 
     async def async_step_client_id(
         self, user_input: dict[str, Any] | None = None
@@ -141,6 +150,7 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
                 {vol.Required(CONF_TOKEN): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))}
             ),
             errors=errors,
+            description_placeholders={"docs_url": READONLY_DOCS_URL},
         )
 
     async def _wait_for_token(self) -> str:

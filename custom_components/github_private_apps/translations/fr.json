@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connexion à GitHub",
-        "description": "Choisis comment donner accès à tes dépôts privés. La connexion par code est recommandée : aucun token à créer, et elle n'expire pas.",
+        "description": "Choisis comment donner accès à tes dépôts privés. La connexion par code est recommandée : aucun token à créer, et elle n'expire pas.\n\n**Attention :** GitHub ne propose pas d'accès en lecture seule aux dépôts privés, donc cet accès (scope `repo`) permet aussi **d'écrire** dans tous les dépôts du compte utilisé. L'intégration ne fait que lire, mais le token est stocké dans Home Assistant et dans ses sauvegardes. Pour limiter le risque, connecte-toi avec un compte GitHub dédié qui n'a qu'un accès en **lecture** à tes dépôts d'apps : [comment le configurer]({docs_url}).",
         "menu_options": {
           "device": "Se connecter avec un code sur github.com (recommandé)",
           "token": "Coller un token existant"
@@ -11,7 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Se reconnecter à GitHub",
-        "description": "GitHub n'accepte plus l'accès enregistré. Reconnecte-toi : les apps installées restent installées, seul l'identifiant change.",
+        "description": "GitHub n'accepte plus l'accès enregistré. Reconnecte-toi : les apps installées restent installées, seul l'identifiant change.\n\nPour garder un token en lecture seule, connecte-toi avec un compte dédié qui n'a qu'un accès en **lecture** à tes dépôts d'apps : [comment le configurer]({docs_url}).",
         "menu_options": {
           "device": "Se connecter avec un code sur github.com (recommandé)",
           "token": "Coller un token existant"
@@ -33,7 +33,7 @@
       },
       "token": {
         "title": "Coller un token GitHub",
-        "description": "Un token avec les scopes `repo` et `read:packages`. Avec GitHub CLI : lance `gh auth refresh -s read:packages`, puis `gh auth token`.",
+        "description": "Un token avec les scopes `repo` et `read:packages`. Avec GitHub CLI : lance `gh auth refresh -s read:packages`, puis `gh auth token`.\n\n**Attention :** le scope `repo` permet aussi d'écrire. Préfère le token d'un compte dédié qui n'a qu'un accès en **lecture** à tes dépôts d'apps : [comment le configurer]({docs_url}).",
         "data": {
           "token": "Token"
         }

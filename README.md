@@ -35,6 +35,23 @@ Two ways to sign in, chosen when adding the integration:
 
 For repositories owned by an organization with OAuth App access restrictions, an org owner must approve the OAuth App.
 
+> [!WARNING]
+> **The access is not read-only.** GitHub offers no read-only scope for private repositories, so the `repo` scope also allows **writing** to every repository the signed-in account can write to: pushing code, deleting branches, editing issues and pull requests, managing collaborators of repositories it owns. The integration itself only reads (the relay refuses pushes), but the token is stored in Home Assistant (`/config/.storage`) and in the Supervisor registry settings, so it also ends up in backups. Anyone who obtains it gets those rights.
+>
+> If you do not want a token that can do everything on your main account, use a dedicated read-only account, as described below.
+
+### Read-only access with a dedicated account
+
+The token can never do more than the account it belongs to. Sign in with a second GitHub account that can only **read** the app repositories, and a leaked token can only read them too.
+
+1. **Create a dedicated GitHub account**, for example `yourname-ha`. GitHub allows one free machine account per person. Enable two-factor authentication on it.
+2. **Put the app repositories in an organization.** On a personal account, every collaborator gets write access: there is no read-only role. Organizations (the free plan is enough) have a **Read** role. If you transfer existing repositories, do it *before* adding them to the integration: the owner is part of the repository URL, so of the app slugs.
+3. **Give the dedicated account Read access only.** Invite it to the organization with the base permission *No permission*, then give it the **Read** role on the app repositories (directly or through a team).
+4. **Private images on ghcr.io:** in each package's settings → *Manage access*, add the dedicated account with **Read**, or enable *Inherit access from source repository*.
+5. **Sign in with the dedicated account in the integration.** Open the sign-in link in a private browser window logged into the dedicated account, or paste a classic token of that account with the `repo` and `read:packages` scopes. An organization with OAuth App access restrictions must approve the OAuth App.
+
+The `ghcr.io` registry credential will then belong to the dedicated account. If the Supervisor already has a `ghcr.io` credential for your main account, remove it first (the integration never overwrites another user's credential).
+
 ## Install
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
@@ -76,6 +93,7 @@ After that, the slug never changes again.
 - The relay is read-only (`git-upload-pack`); pushes are refused.
 - Only repositories configured in the integration are served.
 - Tokens are stored in the Home Assistant config entry and are never logged.
+- The token has the `repo` scope, which is not read-only: see [Read-only access with a dedicated account](#read-only-access-with-a-dedicated-account) to limit what a leaked token can do.
 - Removing the integration also removes the `ghcr.io` credential it set in the Supervisor, unless apps from its repositories are still installed (they may need it to pull their images); a notification then says so.
 - The relay secret is visible to apps granted the Supervisor `manager` or `admin` role (they can list store repositories). Such apps already have far broader control over your system; only install apps you trust with those roles.
 - Report vulnerabilities privately, see [SECURITY.md](SECURITY.md).

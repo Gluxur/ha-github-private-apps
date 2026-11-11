@@ -18,6 +18,12 @@ GITHUB_TOKEN_URL: Final = "https://github.com/login/oauth/access_token"
 GITHUB_API: Final = "https://api.github.com"
 GITHUB_GIT: Final = "https://github.com"
 
+# README section explaining how to sign in with a read-only account. Passed
+# as a description placeholder (hassfest rejects URLs in translation strings).
+READONLY_DOCS_URL: Final = (
+    "https://github.com/Gluxur/ha-github-private-apps#read-only-access-with-a-dedicated-account"
+)
+
 REGISTRY_HOST: Final = "ghcr.io"
 
 # Git relay. The relay URL is what the Supervisor stores, and the Supervisor

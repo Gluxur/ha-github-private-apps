@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sign in to GitHub",
-        "description": "Choose how to give access to your private repositories. Signing in with a code is recommended: no token to create, and it does not expire.",
+        "description": "Choose how to give access to your private repositories. Signing in with a code is recommended: no token to create, and it does not expire.\n\n**Warning:** GitHub has no read-only access to private repositories, so this access (scope `repo`) can also **write** to every repository of the account you sign in with. The integration only reads, but the token is stored in Home Assistant and its backups. To limit the risk, sign in with a dedicated GitHub account that only has **Read** access to your app repositories: [how to set it up]({docs_url}).",
         "menu_options": {
           "device": "Sign in with a code on github.com (recommended)",
           "token": "Paste an existing token"
@@ -11,7 +11,7 @@
       },
       "reauth_confirm": {
         "title": "Sign in to GitHub again",
-        "description": "GitHub no longer accepts the saved access. Sign in again: installed apps stay installed, only the credential changes.",
+        "description": "GitHub no longer accepts the saved access. Sign in again: installed apps stay installed, only the credential changes.\n\nTo keep the token read-only, sign in with a dedicated account that only has **Read** access to your app repositories: [how to set it up]({docs_url}).",
         "menu_options": {
           "device": "Sign in with a code on github.com (recommended)",
           "token": "Paste an existing token"
@@ -33,7 +33,7 @@
       },
       "token": {
         "title": "Paste a GitHub token",
-        "description": "A token with the `repo` and `read:packages` scopes. With GitHub CLI: run `gh auth refresh -s read:packages`, then `gh auth token`.",
+        "description": "A token with the `repo` and `read:packages` scopes. With GitHub CLI: run `gh auth refresh -s read:packages`, then `gh auth token`.\n\n**Warning:** the `repo` scope also allows writing. Prefer a token of a dedicated account that only has **Read** access to your app repositories: [how to set it up]({docs_url}).",
         "data": {
           "token": "Token"
         }
