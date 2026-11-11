@@ -24,20 +24,18 @@ The URL never changes, so app slugs never change. Signing in to GitHub again onl
 ## Requirements
 
 - Home Assistant OS or Supervised (a Supervisor), Home Assistant 2025.1 or newer. Home Assistant Container and Core have no app store and are not supported.
-- A GitHub OAuth App with Device Flow enabled (one-time, 2 minutes).
+- A GitHub account with access to the private repositories.
 
-## 1. Create the GitHub OAuth App (once)
+## Access to GitHub
 
-1. GitHub → Settings → Developer settings → **OAuth Apps** → **New OAuth App**.
-2. Application name: `Home Assistant GitHub Private Apps` (any name). Homepage URL: anything, e.g. your HA URL. Callback URL: `https://github.com/Gluxur/ha-github-private-apps` (any valid https URL; unused by Device Flow).
-3. Create, then tick **Enable Device Flow** and save.
-4. Copy the **Client ID**. No client secret is needed.
+Two ways to sign in, chosen when adding the integration:
 
-The sign-in asks for the scopes `repo` (read private repositories; GitHub has no narrower read-only scope for OAuth) and `read:packages` (pull private images from ghcr.io). OAuth App tokens do not expire unless revoked.
+- **Sign in with a code (recommended).** The integration shows a link and a one-time code; you approve access on github.com. It uses the *Home Assistant GitHub Private Apps* OAuth App, so there is no token to create. Requested scopes: `repo` (read private repositories; GitHub has no narrower read-only scope for OAuth) and `read:packages` (pull private images from ghcr.io). The access does not expire unless you revoke it (GitHub → Settings → Applications).
+- **Paste an existing token.** Any token with the `repo` and `read:packages` scopes, for example from GitHub CLI: `gh auth refresh -s read:packages` then `gh auth token`.
 
 For repositories owned by an organization with OAuth App access restrictions, an org owner must approve the OAuth App.
 
-## 2. Install
+## Install
 
 [![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
 
@@ -45,13 +43,12 @@ Or: HACS → ⋮ → Custom repositories → add `https://github.com/Gluxur/ha-g
 
 Or copy `custom_components/github_private_apps` into `/config/custom_components/` and restart.
 
-## 3. Configure
+## Configure
 
 Settings → Devices & services → **Add integration** → **GitHub Private Apps**:
 
-1. Paste the OAuth App Client ID.
-2. Open the link shown, enter the code, approve.
-3. Pick your private app repositories (repositories with a `repository.yaml` at the root).
+1. Choose **Sign in with a code**, open the link shown, enter the code and approve (or paste a token).
+2. Pick your private app repositories (repositories with a `repository.yaml` at the root).
 
 The repositories appear in Settings → Apps → Store, and the `ghcr.io` registry credential is set to your GitHub sign-in.
 

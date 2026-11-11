@@ -3,20 +3,39 @@
     "step": {
       "user": {
         "title": "Connexion à GitHub",
-        "description": "Saisis le Client ID d'une OAuth App GitHub avec **Device Flow** activé (voir le README). Tu te connecteras ensuite sur github.com avec un code à usage unique.",
-        "data": {
-          "client_id": "Client ID de l'OAuth App"
+        "description": "Choisis comment donner accès à tes dépôts privés. La connexion par code est recommandée : aucun token à créer, et elle n'expire pas.",
+        "menu_options": {
+          "device": "Se connecter avec un code sur github.com (recommandé)",
+          "token": "Coller un token existant"
         }
       },
       "reauth_confirm": {
         "title": "Se reconnecter à GitHub",
-        "description": "GitHub n'accepte plus l'accès enregistré. Reconnecte-toi : les apps installées restent installées, seul l'identifiant change."
+        "description": "GitHub n'accepte plus l'accès enregistré. Reconnecte-toi : les apps installées restent installées, seul l'identifiant change.",
+        "menu_options": {
+          "device": "Se connecter avec un code sur github.com (recommandé)",
+          "token": "Coller un token existant"
+        }
       },
       "repositories": {
         "title": "Dépôts d'apps privés",
         "description": "Choisis les dépôts privés à ajouter à la boutique. {invalid}",
         "data": {
           "repositories": "Dépôts"
+        }
+      },
+      "client_id": {
+        "title": "OAuth App GitHub",
+        "description": "Saisis le Client ID d'une OAuth App GitHub avec **Device Flow** activé.",
+        "data": {
+          "client_id": "Client ID de l'OAuth App"
+        }
+      },
+      "token": {
+        "title": "Coller un token GitHub",
+        "description": "Un token avec les scopes `repo` et `read:packages`. Avec GitHub CLI : lance `gh auth refresh -s read:packages`, puis `gh auth token`.",
+        "data": {
+          "token": "Token"
         }
       }
     },
@@ -26,7 +45,8 @@
     "error": {
       "not_app_repository": "Ce ne sont pas des dépôts d'apps (pas de repository.yaml à la racine) : {invalid}",
       "client_id_required": "Saisis le Client ID de ton OAuth App GitHub.",
-      "cannot_connect": "Impossible de joindre GitHub. Réessaie."
+      "cannot_connect": "Impossible de joindre GitHub. Réessaie.",
+      "invalid_token": "GitHub a refusé ce token."
     },
     "abort": {
       "no_supervisor": "Cette intégration nécessite Home Assistant OS ou Supervised (un Supervisor).",

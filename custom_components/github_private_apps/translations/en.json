@@ -3,20 +3,39 @@
     "step": {
       "user": {
         "title": "Sign in to GitHub",
-        "description": "Enter the Client ID of a GitHub OAuth App with **Device Flow** enabled (see the README). You will then sign in on github.com with a one-time code.",
-        "data": {
-          "client_id": "OAuth App Client ID"
+        "description": "Choose how to give access to your private repositories. Signing in with a code is recommended: no token to create, and it does not expire.",
+        "menu_options": {
+          "device": "Sign in with a code on github.com (recommended)",
+          "token": "Paste an existing token"
         }
       },
       "reauth_confirm": {
         "title": "Sign in to GitHub again",
-        "description": "GitHub no longer accepts the saved access. Sign in again: installed apps stay installed, only the credential changes."
+        "description": "GitHub no longer accepts the saved access. Sign in again: installed apps stay installed, only the credential changes.",
+        "menu_options": {
+          "device": "Sign in with a code on github.com (recommended)",
+          "token": "Paste an existing token"
+        }
       },
       "repositories": {
         "title": "Private app repositories",
         "description": "Select the private repositories to add to the app store. {invalid}",
         "data": {
           "repositories": "Repositories"
+        }
+      },
+      "client_id": {
+        "title": "GitHub OAuth App",
+        "description": "Enter the Client ID of a GitHub OAuth App with **Device Flow** enabled.",
+        "data": {
+          "client_id": "OAuth App Client ID"
+        }
+      },
+      "token": {
+        "title": "Paste a GitHub token",
+        "description": "A token with the `repo` and `read:packages` scopes. With GitHub CLI: run `gh auth refresh -s read:packages`, then `gh auth token`.",
+        "data": {
+          "token": "Token"
         }
       }
     },
@@ -26,7 +45,8 @@
     "error": {
       "not_app_repository": "Not app repositories (no repository.yaml at the root): {invalid}",
       "client_id_required": "Enter the Client ID of your GitHub OAuth App.",
-      "cannot_connect": "Could not reach GitHub. Try again."
+      "cannot_connect": "Could not reach GitHub. Try again.",
+      "invalid_token": "GitHub rejected this token."
     },
     "abort": {
       "no_supervisor": "This integration needs Home Assistant OS or Supervised (a Supervisor).",

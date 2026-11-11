@@ -25,6 +25,8 @@ from homeassistant.helpers.selector import (
     SelectSelectorConfig,
     SelectSelectorMode,
     TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 from . import find_store_slug, relay_url
@@ -38,7 +40,7 @@ from .const import (
     DEFAULT_CLIENT_ID,
     DOMAIN,
 )
-from .github import DeviceCode, GitHubClient, GitHubDeviceFlow, GitHubError
+from .github import DeviceCode, GitHubAuthError, GitHubClient, GitHubDeviceFlow, GitHubError
 from .supervisor import SupervisorClient, SupervisorError
 
 
@@ -79,6 +81,21 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if not os.environ.get("SUPERVISOR"):
             return self.async_abort(reason="no_supervisor")
+        return self.async_show_menu(step_id="user", menu_options=["device", "token"])
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
+        self._client_id = entry_data.get(CONF_CLIENT_ID) or DEFAULT_CLIENT_ID
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return self.async_show_menu(step_id="reauth_confirm", menu_options=["device", "token"])
+
+    async def async_step_client_id(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Only used when no OAuth App Client ID is built in."""
         errors: dict[str, str] = {}
         if user_input is not None:
             self._client_id = user_input[CONF_CLIENT_ID].strip()
@@ -86,23 +103,33 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_device()
             errors[CONF_CLIENT_ID] = "client_id_required"
         return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {vol.Required(CONF_CLIENT_ID, default=DEFAULT_CLIENT_ID): TextSelector()}
-            ),
+            step_id="client_id",
+            data_schema=vol.Schema({vol.Required(CONF_CLIENT_ID): TextSelector()}),
             errors=errors,
         )
 
-    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
-        self._client_id = entry_data[CONF_CLIENT_ID]
-        return await self.async_step_reauth_confirm()
-
-    async def async_step_reauth_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
-        if user_input is None:
-            return self.async_show_form(step_id="reauth_confirm")
-        return await self.async_step_device()
+    async def async_step_token(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Sign in with an existing token (e.g. `gh auth token`)."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            token = user_input[CONF_TOKEN].strip()
+            try:
+                await GitHubClient(async_get_clientsession(self.hass), token).user()
+            except GitHubAuthError:
+                errors[CONF_TOKEN] = "invalid_token"
+            except (GitHubError, ClientError, TimeoutError):
+                errors["base"] = "cannot_connect"
+            else:
+                self._token = token
+                self._client_id = ""
+                return await self.async_step_signed_in()
+        return self.async_show_form(
+            step_id="token",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_TOKEN): TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))}
+            ),
+            errors=errors,
+        )
 
     async def _wait_for_token(self) -> str:
         assert self._device is not None
@@ -124,6 +151,8 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
         raise GitHubError("expired_token")
 
     async def async_step_device(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        if not self._client_id:
+            return await self.async_step_client_id()
         if self._device is None:
             try:
                 self._device = await GitHubDeviceFlow(
@@ -167,7 +196,11 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
             # Keep the relay secret: it is part of every registered URL.
             return self.async_update_reload_and_abort(
                 entry,
-                data_updates={CONF_TOKEN: self._token, CONF_LOGIN: self._user["login"]},
+                data_updates={
+                    CONF_TOKEN: self._token,
+                    CONF_LOGIN: self._user["login"],
+                    CONF_CLIENT_ID: self._client_id,
+                },
             )
 
         self._abort_if_unique_id_configured()

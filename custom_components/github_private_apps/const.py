@@ -10,7 +10,7 @@ DOMAIN: Final = "github_private_apps"
 # GitHub OAuth App used for the device flow. Device flow needs no client
 # secret, so the client id is public. Override it in the config flow if you
 # run your own OAuth App.
-DEFAULT_CLIENT_ID: Final = ""
+DEFAULT_CLIENT_ID: Final = "Ov23liJ2Q33iEOLQMHvD"
 
 GITHUB_SCOPES: Final = "repo read:packages"
 GITHUB_DEVICE_CODE_URL: Final = "https://github.com/login/device/code"
