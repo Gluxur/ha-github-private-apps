@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from aiohttp import ClientSession, ClientTimeout
+from aiohttp import ClientError, ClientSession, ClientTimeout
 
 
 class SupervisorError(Exception):
@@ -31,14 +31,17 @@ class SupervisorClient:
         self._session = session
 
     async def _call(self, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
-        async with self._session.request(
-            method,
-            self._base + path,
-            json=payload,
-            headers=self._headers,
-            timeout=ClientTimeout(total=300),
-        ) as resp:
-            body = await resp.json(content_type=None)
+        try:
+            async with self._session.request(
+                method,
+                self._base + path,
+                json=payload,
+                headers=self._headers,
+                timeout=ClientTimeout(total=300),
+            ) as resp:
+                body = await resp.json(content_type=None)
+        except (ClientError, TimeoutError, ValueError) as err:
+            raise SupervisorError(f"{method} {path} failed: {type(err).__name__}") from err
         if not isinstance(body, dict) or body.get("result") != "ok":
             message = body.get("message") if isinstance(body, dict) else None
             raise SupervisorError(message or f"{method} {path} failed")
@@ -55,10 +58,6 @@ class SupervisorClient:
     async def remove_repository(self, slug: str) -> None:
         """Remove a repository from the store."""
         await self._call("delete", f"/store/repositories/{slug}")
-
-    async def reload_store(self) -> None:
-        """Pull every repository and refresh available versions."""
-        await self._call("post", "/store/reload")
 
     async def installed_addons(self) -> list[dict[str, Any]]:
         """Return installed apps (each has 'slug' and 'repository')."""
@@ -77,3 +76,7 @@ class SupervisorClient:
             "/docker/registries",
             {host: {"username": username, "password": password}},
         )
+
+    async def remove_registry(self, host: str) -> None:
+        """Remove a registry credential."""
+        await self._call("delete", f"/docker/registries/{host}")

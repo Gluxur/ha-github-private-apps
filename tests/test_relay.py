@@ -7,7 +7,7 @@ from ipaddress import ip_network
 import importlib.util
 from pathlib import Path
 
-from aiohttp import ClientSession, web
+from aiohttp import ClientPayloadError, ClientSession, web
 from aiohttp.test_utils import TestServer
 import pytest
 
@@ -36,9 +36,17 @@ async def upstream():
             content_type="application/x-git-upload-pack-advertisement",
         )
 
-    async def pack(request: web.Request) -> web.Response:
+    async def pack(request: web.Request) -> web.StreamResponse:
         body = await request.read()
         seen.append({"path": request.path, "body": body, "headers": dict(request.headers)})
+        if status.get("truncate"):
+            # Start a chunked answer, then drop the connection mid-stream.
+            resp = web.StreamResponse(status=200)
+            resp.enable_chunked_encoding()
+            await resp.prepare(request)
+            await resp.write(b"PACK partial")
+            request.transport.close()
+            return resp
         return web.Response(status=status["code"], body=b"PACK" + body, content_type="application/x-git-upload-pack-result")
 
     app = web.Application()
@@ -155,3 +163,19 @@ async def test_upstream_401_reports_auth_failure(relay, upstream):
     ) as resp:
         assert resp.status == 401
     assert failures == [(REPO, 401)]
+
+
+async def test_upstream_interrupted_mid_stream(relay, upstream, caplog):
+    """A broken upstream transfer fails the git request, not the relay."""
+    base, _, session = relay
+    _, _, status = upstream
+    status["truncate"] = True
+    url = f"{base}/{SECRET}/{REPO}.git/git-upload-pack"
+    with pytest.raises(ClientPayloadError):
+        async with session.post(url, data=b"0000") as resp:
+            await resp.read()
+    assert "transfer of Owner/My-Repo interrupted" in caplog.text
+    status["truncate"] = False
+    async with session.post(url, data=b"0000") as resp:
+        assert resp.status == 200
+        assert await resp.read() == b"PACK0000"

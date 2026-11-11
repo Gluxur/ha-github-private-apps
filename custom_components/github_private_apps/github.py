@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 
 from .const import GITHUB_API, GITHUB_DEVICE_CODE_URL, GITHUB_SCOPES, GITHUB_TOKEN_URL
 
@@ -81,11 +81,14 @@ class GitHubClient:
         }
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> tuple[int, Any]:
-        async with self._session.get(GITHUB_API + path, headers=self._headers, params=params) as resp:
-            if resp.status == 401:
-                raise GitHubAuthError("GitHub token rejected")
-            body = await resp.json(content_type=None) if resp.status != 204 else None
-            return resp.status, body
+        try:
+            async with self._session.get(GITHUB_API + path, headers=self._headers, params=params) as resp:
+                if resp.status == 401:
+                    raise GitHubAuthError("GitHub token rejected")
+                body = await resp.json(content_type=None) if resp.status != 204 else None
+                return resp.status, body
+        except (ClientError, TimeoutError, ValueError) as err:
+            raise GitHubError(f"GET {path} failed: {type(err).__name__}") from err
 
     async def user(self) -> dict[str, Any]:
         """Return the authenticated user."""

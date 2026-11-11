@@ -50,14 +50,21 @@ def _repo_selector(options: list[str]) -> SelectSelector:
     )
 
 
-async def _filter_app_repositories(
+async def _check_selection(
     client: GitHubClient, names: list[str]
-) -> tuple[list[str], list[str]]:
-    """Split names into (app repositories, others)."""
-    checks = await asyncio.gather(*(client.is_app_repository(n) for n in names))
-    good = [n for n, ok in zip(names, checks, strict=True) if ok]
+) -> tuple[list[str], dict[str, str], str]:
+    """Check that every selected repository is an app repository.
+
+    Returns (repositories, form errors, comma-separated invalid names).
+    """
+    try:
+        checks = await asyncio.gather(*(client.is_app_repository(n) for n in names))
+    except GitHubError:
+        return [], {"base": "cannot_connect"}, ""
     bad = [n for n, ok in zip(names, checks, strict=True) if not ok]
-    return good, bad
+    if bad:
+        return [], {CONF_REPOSITORIES: "not_app_repository"}, ", ".join(bad)
+    return names, {}, ""
 
 
 class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -82,6 +89,12 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
         if not os.environ.get("SUPERVISOR"):
             return self.async_abort(reason="no_supervisor")
         return self.async_show_menu(step_id="user", menu_options=["device", "token"])
+
+    @callback
+    def async_remove(self) -> None:
+        """Stop polling GitHub when the flow is closed before sign-in ends."""
+        if self._login_task is not None and not self._login_task.done():
+            self._login_task.cancel()
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         self._client_id = entry_data.get(CONF_CLIENT_ID) or DEFAULT_CLIENT_ID
@@ -218,17 +231,8 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             chosen: list[str] = user_input.get(CONF_REPOSITORIES, [])
             client = GitHubClient(async_get_clientsession(self.hass), self._token or "")
-            try:
-                good, bad = await _filter_app_repositories(client, chosen)
-            except (GitHubError, ClientError, TimeoutError):
-                good, bad = [], []
-                errors["base"] = "cannot_connect"
-            if errors:
-                pass
-            elif bad:
-                errors[CONF_REPOSITORIES] = "not_app_repository"
-                placeholders["invalid"] = ", ".join(bad)
-            else:
+            good, errors, placeholders["invalid"] = await _check_selection(client, chosen)
+            if not errors:
                 return self.async_create_entry(
                     title=self._user["login"],
                     data={
@@ -268,17 +272,8 @@ class GitHubPrivateAppsOptionsFlow(OptionsFlow):
 
         if user_input is not None:
             chosen: list[str] = user_input.get(CONF_REPOSITORIES, [])
-            try:
-                good, bad = await _filter_app_repositories(client, chosen)
-            except (GitHubError, ClientError, TimeoutError):
-                good, bad = [], []
-                errors["base"] = "cannot_connect"
-            if errors:
-                pass
-            elif bad:
-                errors[CONF_REPOSITORIES] = "not_app_repository"
-                placeholders["invalid"] = ", ".join(bad)
-            else:
+            good, errors, placeholders["invalid"] = await _check_selection(client, chosen)
+            if not errors:
                 # Saving the options reloads the entry, which registers the
                 # new repositories in the Supervisor through the relay.
                 return self.async_create_entry(

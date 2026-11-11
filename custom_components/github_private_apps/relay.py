@@ -17,7 +17,7 @@ from ipaddress import IPv4Network, IPv6Network, ip_address
 import logging
 import re
 
-from aiohttp import ClientSession, ClientTimeout, web
+from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -98,7 +98,8 @@ class GitRelay:
 
     async def _handle(self, request: web.Request) -> web.StreamResponse:
         if not self._peer_allowed(request):
-            _LOGGER.warning("Git relay: rejected request from %s", request.remote)
+            # Debug only: any app on the network could otherwise flood the log.
+            _LOGGER.debug("Git relay: rejected request from %s", request.remote)
             return web.Response(status=403, text="Forbidden")
 
         match = _PATH.match(request.path)
@@ -150,7 +151,16 @@ class GitRelay:
                 if name in upstream.headers:
                     response.headers[name] = upstream.headers[name]
             await response.prepare(request)
-            async for chunk in upstream.content.iter_chunked(64 * 1024):
-                await response.write(chunk)
-            await response.write_eof()
+            try:
+                async for chunk in upstream.content.iter_chunked(64 * 1024):
+                    await response.write(chunk)
+                await response.write_eof()
+            except (ClientError, TimeoutError, ConnectionResetError) as err:
+                # Headers are already sent: dropping the connection is the
+                # only way left to tell git the transfer failed.
+                _LOGGER.warning(
+                    "Git relay: transfer of %s interrupted: %s", full_name, type(err).__name__
+                )
+                if request.transport is not None:
+                    request.transport.close()
             return response

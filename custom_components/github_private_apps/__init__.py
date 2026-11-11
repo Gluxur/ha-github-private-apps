@@ -138,6 +138,23 @@ async def async_remove_entry(hass: HomeAssistant, entry: GitHubPrivateAppsConfig
     except SupervisorError as err:
         _LOGGER.warning("Could not clean up the app store: %s", err)
 
+    ir.async_delete_issue(hass, DOMAIN, "registry_conflict")
+    try:
+        await _remove_registry(entry, SupervisorClient(async_get_clientsession(hass)))
+    except SupervisorError as err:
+        _LOGGER.warning("Could not remove the %s credential: %s", REGISTRY_HOST, err)
+
+
+async def _remove_registry(entry: GitHubPrivateAppsConfigEntry, supervisor: SupervisorClient) -> None:
+    """Remove the ghcr.io credential if it is the one this entry set.
+
+    Leaving it would keep the GitHub token in the Supervisor after the
+    integration is gone. A credential for another user is not ours to remove.
+    """
+    current = (await supervisor.registries()).get(REGISTRY_HOST)
+    if current and current.get("username", "").lower() == entry.data[CONF_LOGIN].lower():
+        await supervisor.remove_registry(REGISTRY_HOST)
+
 
 async def _async_reload(hass: HomeAssistant, entry: GitHubPrivateAppsConfigEntry) -> None:
     await hass.config_entries.async_reload(entry.entry_id)
