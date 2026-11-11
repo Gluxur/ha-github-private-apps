@@ -76,7 +76,7 @@ After that, the slug never changes again.
 - The relay is read-only (`git-upload-pack`); pushes are refused.
 - Only repositories configured in the integration are served.
 - Tokens are stored in the Home Assistant config entry and are never logged.
-- Removing the integration also removes the `ghcr.io` credential it set in the Supervisor.
+- Removing the integration also removes the `ghcr.io` credential it set in the Supervisor, unless apps from its repositories are still installed (they may need it to pull their images); a notification then says so.
 - The relay secret is visible to apps granted the Supervisor `manager` or `admin` role (they can list store repositories). Such apps already have far broader control over your system; only install apps you trust with those roles.
 - Report vulnerabilities privately, see [SECURITY.md](SECURITY.md).
 

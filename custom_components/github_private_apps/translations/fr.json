@@ -92,7 +92,8 @@
     "abort": {
       "cannot_list": "Impossible de lister tes dépôts GitHub.",
       "nothing_to_add": "Tous tes dépôts privés sont déjà ajoutés.",
-      "nothing_to_remove": "Aucun dépôt configuré."
+      "nothing_to_remove": "Aucun dépôt configuré.",
+      "reauth_required": "GitHub n'accepte plus l'accès enregistré. Utilise la notification de réauthentification pour te reconnecter."
     }
   },
   "issues": {

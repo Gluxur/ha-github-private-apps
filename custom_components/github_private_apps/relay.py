@@ -153,14 +153,51 @@ class GitRelay:
             await response.prepare(request)
             try:
                 async for chunk in upstream.content.iter_chunked(64 * 1024):
-                    await response.write(chunk)
-                await response.write_eof()
-            except (ClientError, TimeoutError, ConnectionResetError) as err:
+                    await _write(response, chunk)
+                await _write(response, None)
+            except _ClientGone as err:
+                # The Supervisor went away (its own timeout, a restart):
+                # not an upstream problem.
+                _LOGGER.debug(
+                    "Git relay: client stopped reading %s: %s", full_name, type(err.__cause__).__name__
+                )
+                return _abort(request, response)
+            except (ClientError, TimeoutError) as err:
                 # Headers are already sent: dropping the connection is the
                 # only way left to tell git the transfer failed.
                 _LOGGER.warning(
                     "Git relay: transfer of %s interrupted: %s", full_name, type(err).__name__
                 )
-                if request.transport is not None:
-                    request.transport.close()
+                return _abort(request, response)
             return response
+
+
+class _ClientGone(Exception):
+    """Writing to the downstream (Supervisor) connection failed."""
+
+
+async def _write(response: web.StreamResponse, chunk: bytes | None) -> None:
+    """Write a chunk, or the end of the body when chunk is None.
+
+    Write errors are re-raised as _ClientGone so they are not mistaken for
+    upstream errors (aiohttp's ClientConnectionResetError is a ClientError).
+    """
+    try:
+        if chunk is None:
+            await response.write_eof()
+        else:
+            await response.write(chunk)
+    except ConnectionError as err:
+        raise _ClientGone from err
+
+
+def _abort(request: web.Request, response: web.StreamResponse) -> web.StreamResponse:
+    """Drop the connection of a response whose headers are already sent.
+
+    aiohttp's own end-of-body write on the closed transport afterwards is
+    treated as a client disconnection and only logged at debug level.
+    """
+    response.force_close()
+    if request.transport is not None:
+        request.transport.close()
+    return response

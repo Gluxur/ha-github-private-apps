@@ -47,9 +47,18 @@ class SupervisorClient:
             raise SupervisorError(message or f"{method} {path} failed")
         return body.get("data")
 
+    async def _get_dict(self, path: str) -> dict[str, Any]:
+        data = await self._call("get", path)
+        if not isinstance(data, dict):
+            raise SupervisorError(f"GET {path} returned no data")
+        return data
+
     async def repositories(self) -> list[dict[str, Any]]:
         """Return store repositories (slug, source, name...)."""
-        return await self._call("get", "/store/repositories")
+        data = await self._call("get", "/store/repositories")
+        if not isinstance(data, list):
+            raise SupervisorError("GET /store/repositories returned no list")
+        return [repo for repo in data if isinstance(repo, dict)]
 
     async def add_repository(self, url: str) -> None:
         """Add a repository to the store (clones it)."""
@@ -61,13 +70,16 @@ class SupervisorClient:
 
     async def installed_addons(self) -> list[dict[str, Any]]:
         """Return installed apps (each has 'slug' and 'repository')."""
-        data = await self._call("get", "/addons")
-        return data.get("addons", [])
+        addons = (await self._get_dict("/addons")).get("addons") or []
+        return [a for a in addons if isinstance(a, dict)]
 
     async def registries(self) -> dict[str, dict[str, Any]]:
         """Return configured registries {host: {username}}."""
-        data = await self._call("get", "/docker/registries")
-        return data.get("registries", data) or {}
+        data = await self._get_dict("/docker/registries")
+        registries = data.get("registries", data)
+        if not isinstance(registries, dict):
+            raise SupervisorError("GET /docker/registries returned no registries")
+        return {host: cred for host, cred in registries.items() if isinstance(cred, dict)}
 
     async def set_registry(self, host: str, username: str, password: str) -> None:
         """Add or replace a registry credential."""

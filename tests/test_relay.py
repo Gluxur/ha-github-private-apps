@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
+import logging
 from ipaddress import ip_network
 import importlib.util
 from pathlib import Path
@@ -39,6 +41,19 @@ async def upstream():
     async def pack(request: web.Request) -> web.StreamResponse:
         body = await request.read()
         seen.append({"path": request.path, "body": body, "headers": dict(request.headers)})
+        if status.get("slow"):
+            # Long answer, so the relay is still writing when the client leaves.
+            resp = web.StreamResponse(status=200)
+            await resp.prepare(request)
+            try:
+                for _ in range(200):
+                    await resp.write(b"x" * 65536)
+                    await asyncio.sleep(0.01)
+            except ConnectionError:
+                pass
+            finally:
+                status["slow_done"].set()
+            return resp
         if status.get("truncate"):
             # Start a chunked answer, then drop the connection mid-stream.
             resp = web.StreamResponse(status=200)
@@ -176,6 +191,29 @@ async def test_upstream_interrupted_mid_stream(relay, upstream, caplog):
             await resp.read()
     assert "transfer of Owner/My-Repo interrupted" in caplog.text
     status["truncate"] = False
+    async with session.post(url, data=b"0000") as resp:
+        assert resp.status == 200
+        assert await resp.read() == b"PACK0000"
+
+
+async def test_client_disconnect_is_not_an_upstream_error(relay, upstream, caplog):
+    """The Supervisor leaving mid-transfer is logged at debug, not as a failure."""
+    base, _, session = relay
+    _, _, status = upstream
+    status["slow"] = True
+    status["slow_done"] = asyncio.Event()
+    caplog.set_level(logging.DEBUG)
+    url = f"{base}/{SECRET}/{REPO}.git/git-upload-pack"
+    resp = await session.post(url, data=b"0000")
+    assert resp.status == 200
+    await resp.content.readany()
+    resp.close()  # drop the connection mid-body
+    await asyncio.wait_for(status["slow_done"].wait(), timeout=10)
+    await asyncio.sleep(0.1)
+    assert "client stopped reading Owner/My-Repo" in caplog.text
+    assert "interrupted" not in caplog.text
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
+    status["slow"] = False
     async with session.post(url, data=b"0000") as resp:
         assert resp.status == 200
         assert await resp.read() == b"PACK0000"

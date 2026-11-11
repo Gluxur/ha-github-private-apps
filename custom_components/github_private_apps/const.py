@@ -33,3 +33,6 @@ CONF_LOGIN: Final = "login"
 CONF_USER_ID: Final = "user_id"
 CONF_REPOSITORIES: Final = "repositories"
 CONF_RELAY_SECRET: Final = "relay_secret"
+# GitHub login last written to the ghcr.io registry credential. Lets the
+# entry recognise its own credential after a GitHub username change.
+CONF_REGISTRY_LOGIN: Final = "registry_login"

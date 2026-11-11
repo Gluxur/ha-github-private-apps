@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 
+from homeassistant.components import persistent_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
@@ -20,6 +21,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_LOGIN,
+    CONF_REGISTRY_LOGIN,
     CONF_RELAY_SECRET,
     CONF_REPOSITORIES,
     CONF_TOKEN,
@@ -122,38 +124,63 @@ async def async_remove_entry(hass: HomeAssistant, entry: GitHubPrivateAppsConfig
 
     Without the integration nothing answers on their URL any more. A
     repository with installed apps is kept: removing it would orphan them.
+    The ghcr.io credential is removed too, unless such apps remain: they may
+    still need it to pull their private images.
     """
-    try:
-        supervisor = SupervisorClient(async_get_clientsession(hass))
-        installed = {a.get("repository") for a in await supervisor.installed_addons()}
-        secret = entry.data[CONF_RELAY_SECRET]
-        for full_name in entry.options.get(CONF_REPOSITORIES, []):
-            slug = await find_store_slug(supervisor, relay_url(secret, full_name))
-            if slug and slug not in installed:
-                await supervisor.remove_repository(slug)
-            elif slug:
-                _LOGGER.warning(
-                    "Kept %s in the app store: apps from it are still installed", full_name
-                )
-    except SupervisorError as err:
-        _LOGGER.warning("Could not clean up the app store: %s", err)
-
     ir.async_delete_issue(hass, DOMAIN, "registry_conflict")
     try:
-        await _remove_registry(entry, SupervisorClient(async_get_clientsession(hass)))
+        supervisor = SupervisorClient(async_get_clientsession(hass))
+    except SupervisorError as err:
+        _LOGGER.warning("Could not clean up the Supervisor: %s", err)
+        return
+
+    kept: list[str] = []
+    try:
+        installed = {a.get("repository") for a in await supervisor.installed_addons()}
+        secret = entry.data[CONF_RELAY_SECRET]
+        slugs = await store_slugs(supervisor)
+        for full_name in entry.options.get(CONF_REPOSITORIES, []):
+            slug = slugs.get(relay_url(secret, full_name).lower())
+            if slug and slug in installed:
+                kept.append(full_name)
+            elif slug:
+                await supervisor.remove_repository(slug)
+    except SupervisorError as err:
+        _LOGGER.warning("Could not clean up the app store: %s", err)
+        return  # unknown state: keep the credential rather than break an app
+
+    if kept:
+        # The integration is gone, so a repair issue would have no owner:
+        # tell the user with a notification that the token is still stored.
+        persistent_notification.async_create(
+            hass,
+            f"Apps from {', '.join(kept)} are still installed, so these repositories and the "
+            f"{REGISTRY_HOST} credential (your GitHub token) were kept in the Supervisor. "
+            f"Uninstall those apps, then remove the repositories in Settings > Apps > Store > "
+            f"Repositories and the {REGISTRY_HOST} entry in Registries.",
+            title="GitHub Private Apps: GitHub token kept",
+            notification_id=f"{DOMAIN}_kept_credential",
+        )
+        return
+    try:
+        current = (await supervisor.registries()).get(REGISTRY_HOST)
+        if current and _owns_registry(entry, current):
+            await supervisor.remove_registry(REGISTRY_HOST)
     except SupervisorError as err:
         _LOGGER.warning("Could not remove the %s credential: %s", REGISTRY_HOST, err)
 
 
-async def _remove_registry(entry: GitHubPrivateAppsConfigEntry, supervisor: SupervisorClient) -> None:
-    """Remove the ghcr.io credential if it is the one this entry set.
+def _owns_registry(entry: GitHubPrivateAppsConfigEntry, credential: dict) -> bool:
+    """True if the registry credential is the one this entry set.
 
-    Leaving it would keep the GitHub token in the Supervisor after the
-    integration is gone. A credential for another user is not ours to remove.
+    A credential for another user is not ours to replace or remove. The login
+    last written is remembered so a GitHub username change is still ours.
     """
-    current = (await supervisor.registries()).get(REGISTRY_HOST)
-    if current and current.get("username", "").lower() == entry.data[CONF_LOGIN].lower():
-        await supervisor.remove_registry(REGISTRY_HOST)
+    user = str(credential.get("username") or "").lower()
+    ours = {entry.data[CONF_LOGIN].lower()}
+    if previous := entry.data.get(CONF_REGISTRY_LOGIN):
+        ours.add(previous.lower())
+    return user in ours
 
 
 async def _async_reload(hass: HomeAssistant, entry: GitHubPrivateAppsConfigEntry) -> None:
@@ -170,8 +197,8 @@ async def _sync_registry(
     """
     login: str = entry.data[CONF_LOGIN]
     current = (await supervisor.registries()).get(REGISTRY_HOST)
-    current_user = (current or {}).get("username", "")
-    if current and current_user.lower() != login.lower():
+    if current and not _owns_registry(entry, current):
+        current_user = str(current.get("username") or "")
         ir.async_create_issue(
             hass,
             DOMAIN,
@@ -184,12 +211,17 @@ async def _sync_registry(
         return
     ir.async_delete_issue(hass, DOMAIN, "registry_conflict")
     await supervisor.set_registry(REGISTRY_HOST, login, entry.data[CONF_TOKEN])
+    if entry.data.get(CONF_REGISTRY_LOGIN) != login:
+        # Runs before the update listener is added: does not reload the entry.
+        hass.config_entries.async_update_entry(
+            entry, data={**entry.data, CONF_REGISTRY_LOGIN: login}
+        )
 
 
 async def _sync_repositories(entry: GitHubPrivateAppsConfigEntry, supervisor: SupervisorClient) -> None:
     """Register every configured repository in the Supervisor store."""
     secret = entry.data[CONF_RELAY_SECRET]
-    known = {repo.get("source", "").lower() for repo in await supervisor.repositories()}
+    known = set(await store_slugs(supervisor))
     for full_name in entry.options.get(CONF_REPOSITORIES, []):
         url = relay_url(secret, full_name)
         if url.lower() not in known:
@@ -197,9 +229,10 @@ async def _sync_repositories(entry: GitHubPrivateAppsConfigEntry, supervisor: Su
             await supervisor.add_repository(url)
 
 
-async def find_store_slug(supervisor: SupervisorClient, url: str) -> str | None:
-    """Return the Supervisor slug of the repository registered with url."""
-    for repo in await supervisor.repositories():
-        if repo.get("source", "").lower() == url.lower():
-            return repo.get("slug")
-    return None
+async def store_slugs(supervisor: SupervisorClient) -> dict[str, str]:
+    """Return {lowercased source URL: slug} for the store repositories."""
+    return {
+        str(repo.get("source") or "").lower(): repo["slug"]
+        for repo in await supervisor.repositories()
+        if repo.get("slug")
+    }

@@ -92,7 +92,8 @@
     "abort": {
       "cannot_list": "Could not list your GitHub repositories.",
       "nothing_to_add": "All your private repositories are already added.",
-      "nothing_to_remove": "No repository configured."
+      "nothing_to_remove": "No repository configured.",
+      "reauth_required": "GitHub no longer accepts the saved access. Use the re-authenticate notification to sign in again."
     }
   },
   "issues": {

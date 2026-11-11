@@ -18,6 +18,24 @@ class GitHubAuthError(GitHubError):
     """Token is invalid or revoked."""
 
 
+async def _request_json(
+    session: ClientSession, method: str, url: str, **kwargs: Any
+) -> tuple[int, Any]:
+    """Send a request and return (status, JSON body or None for 204).
+
+    Network, timeout and non-JSON failures become GitHubError; a 401 becomes
+    GitHubAuthError. Only the exception type is kept in the message.
+    """
+    try:
+        async with session.request(method, url, **kwargs) as resp:
+            if resp.status == 401:
+                raise GitHubAuthError("GitHub token rejected")
+            body = await resp.json(content_type=None) if resp.status != 204 else None
+            return resp.status, body
+    except (ClientError, TimeoutError, ValueError) as err:
+        raise GitHubError(f"{method} {url} failed: {type(err).__name__}") from err
+
+
 @dataclass
 class DeviceCode:
     """Device flow code shown to the user."""
@@ -36,36 +54,46 @@ class GitHubDeviceFlow:
         self._session = session
         self._client_id = client_id
 
+    async def _post(self, url: str, data: dict[str, str]) -> dict[str, Any]:
+        _, body = await _request_json(
+            self._session, "POST", url, data=data, headers={"Accept": "application/json"}
+        )
+        if not isinstance(body, dict):
+            raise GitHubError(f"POST {url} returned an unexpected body")
+        return body
+
     async def start(self) -> DeviceCode:
         """Request a device and user code."""
-        async with self._session.post(
-            GITHUB_DEVICE_CODE_URL,
-            data={"client_id": self._client_id, "scope": GITHUB_SCOPES},
-            headers={"Accept": "application/json"},
-        ) as resp:
-            body = await resp.json(content_type=None)
+        body = await self._post(
+            GITHUB_DEVICE_CODE_URL, {"client_id": self._client_id, "scope": GITHUB_SCOPES}
+        )
         if "device_code" not in body:
             raise GitHubError(body.get("error_description") or body.get("error") or "device flow refused")
-        return DeviceCode(
-            device_code=body["device_code"],
-            user_code=body["user_code"],
-            verification_uri=body["verification_uri"],
-            interval=int(body.get("interval", 5)),
-            expires_in=int(body.get("expires_in", 900)),
-        )
+        try:
+            return DeviceCode(
+                device_code=body["device_code"],
+                user_code=body["user_code"],
+                verification_uri=body["verification_uri"],
+                interval=int(body.get("interval", 5)),
+                expires_in=int(body.get("expires_in", 900)),
+            )
+        except (KeyError, TypeError, ValueError) as err:
+            raise GitHubError("device flow answer is incomplete") from err
 
     async def poll(self, device_code: str) -> tuple[str | None, str | None]:
-        """Poll once. Returns (token, error). error is None or a GitHub error code."""
-        async with self._session.post(
+        """Poll once. Returns (token, error). error is None or a GitHub error code.
+
+        Raises GitHubError when GitHub could not be reached or answered
+        something that is not JSON.
+        """
+        body = await self._post(
             GITHUB_TOKEN_URL,
-            data={
+            {
                 "client_id": self._client_id,
                 "device_code": device_code,
                 "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
             },
-            headers={"Accept": "application/json"},
-        ) as resp:
-            body = await resp.json(content_type=None)
+        )
         return body.get("access_token"), body.get("error")
 
 
@@ -81,14 +109,9 @@ class GitHubClient:
         }
 
     async def _get(self, path: str, params: dict[str, Any] | None = None) -> tuple[int, Any]:
-        try:
-            async with self._session.get(GITHUB_API + path, headers=self._headers, params=params) as resp:
-                if resp.status == 401:
-                    raise GitHubAuthError("GitHub token rejected")
-                body = await resp.json(content_type=None) if resp.status != 204 else None
-                return resp.status, body
-        except (ClientError, TimeoutError, ValueError) as err:
-            raise GitHubError(f"GET {path} failed: {type(err).__name__}") from err
+        return await _request_json(
+            self._session, "GET", GITHUB_API + path, headers=self._headers, params=params
+        )
 
     async def user(self) -> dict[str, Any]:
         """Return the authenticated user."""

@@ -8,7 +8,6 @@ import os
 import secrets
 from typing import Any
 
-from aiohttp import ClientError
 import voluptuous as vol
 
 from homeassistant.config_entries import (
@@ -29,7 +28,7 @@ from homeassistant.helpers.selector import (
     TextSelectorType,
 )
 
-from . import find_store_slug, relay_url
+from . import relay_url, store_slugs
 from .const import (
     CONF_CLIENT_ID,
     CONF_LOGIN,
@@ -57,10 +56,16 @@ async def _check_selection(
 
     Returns (repositories, form errors, comma-separated invalid names).
     """
-    try:
-        checks = await asyncio.gather(*(client.is_app_repository(n) for n in names))
-    except GitHubError:
-        return [], {"base": "cannot_connect"}, ""
+    checks = await asyncio.gather(
+        *(client.is_app_repository(n) for n in names), return_exceptions=True
+    )
+    if any(isinstance(c, GitHubAuthError) for c in checks):
+        return [], {"base": "invalid_auth"}, ""
+    for check in checks:
+        if isinstance(check, GitHubError):
+            return [], {"base": "cannot_connect"}, ""
+        if isinstance(check, BaseException):
+            raise check
     bad = [n for n, ok in zip(names, checks, strict=True) if not ok]
     if bad:
         return [], {CONF_REPOSITORIES: "not_app_repository"}, ", ".join(bad)
@@ -89,12 +94,6 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
         if not os.environ.get("SUPERVISOR"):
             return self.async_abort(reason="no_supervisor")
         return self.async_show_menu(step_id="user", menu_options=["device", "token"])
-
-    @callback
-    def async_remove(self) -> None:
-        """Stop polling GitHub when the flow is closed before sign-in ends."""
-        if self._login_task is not None and not self._login_task.done():
-            self._login_task.cancel()
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
         self._client_id = entry_data.get(CONF_CLIENT_ID) or DEFAULT_CLIENT_ID
@@ -130,7 +129,7 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
                 await GitHubClient(async_get_clientsession(self.hass), token).user()
             except GitHubAuthError:
                 errors[CONF_TOKEN] = "invalid_token"
-            except (GitHubError, ClientError, TimeoutError):
+            except GitHubError:
                 errors["base"] = "cannot_connect"
             else:
                 self._token = token
@@ -153,8 +152,8 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
             await asyncio.sleep(interval)
             try:
                 token, error = await flow.poll(self._device.device_code)
-            except (ClientError, TimeoutError):
-                continue  # transient network error: keep polling until expiry
+            except GitHubError:
+                continue  # transient network or GitHub error: keep polling until expiry
             if token:
                 return token
             if error == "slow_down":
@@ -171,7 +170,7 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
                 self._device = await GitHubDeviceFlow(
                     async_get_clientsession(self.hass), self._client_id
                 ).start()
-            except (GitHubError, ClientError, TimeoutError):
+            except GitHubError:
                 return self.async_abort(reason="device_flow_failed")
         if self._login_task is None:
             self._login_task = self.hass.async_create_task(self._wait_for_token())
@@ -187,7 +186,7 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
             )
         try:
             self._token = self._login_task.result()
-        except (GitHubError, ClientError, TimeoutError):
+        except GitHubError:
             return self.async_show_progress_done(next_step_id="login_failed")
         return self.async_show_progress_done(next_step_id="signed_in")
 
@@ -199,7 +198,7 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
         client = GitHubClient(async_get_clientsession(self.hass), self._token)
         try:
             self._user = await client.user()
-        except (GitHubError, ClientError, TimeoutError):
+        except GitHubError:
             return self.async_abort(reason="login_failed")
         await self.async_set_unique_id(str(self._user["id"]))
 
@@ -219,7 +218,7 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured()
         try:
             self._candidates = await client.private_repositories()
-        except (GitHubError, ClientError, TimeoutError):
+        except GitHubError:
             return self.async_abort(reason="cannot_list")
         return await self.async_step_repositories()
 
@@ -232,6 +231,9 @@ class GitHubPrivateAppsConfigFlow(ConfigFlow, domain=DOMAIN):
             chosen: list[str] = user_input.get(CONF_REPOSITORIES, [])
             client = GitHubClient(async_get_clientsession(self.hass), self._token or "")
             good, errors, placeholders["invalid"] = await _check_selection(client, chosen)
+            if errors.get("base") == "invalid_auth":
+                # No entry exists yet, so there is nothing to reauthenticate.
+                return self.async_abort(reason="login_failed")
             if not errors:
                 return self.async_create_entry(
                     title=self._user["login"],
@@ -260,6 +262,11 @@ class GitHubPrivateAppsOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         return self.async_show_menu(step_id="init", menu_options=["add", "remove"])
 
+    def _abort_reauth(self) -> ConfigFlowResult:
+        """GitHub rejected the saved token: ask the user to sign in again."""
+        self.config_entry.async_start_reauth(self.hass)
+        return self.async_abort(reason="reauth_required")
+
     @property
     def _configured(self) -> list[str]:
         return list(self.config_entry.options.get(CONF_REPOSITORIES, []))
@@ -273,6 +280,8 @@ class GitHubPrivateAppsOptionsFlow(OptionsFlow):
         if user_input is not None:
             chosen: list[str] = user_input.get(CONF_REPOSITORIES, [])
             good, errors, placeholders["invalid"] = await _check_selection(client, chosen)
+            if errors.get("base") == "invalid_auth":
+                return self._abort_reauth()
             if not errors:
                 # Saving the options reloads the entry, which registers the
                 # new repositories in the Supervisor through the relay.
@@ -282,7 +291,9 @@ class GitHubPrivateAppsOptionsFlow(OptionsFlow):
 
         try:
             available = await client.private_repositories()
-        except (GitHubError, ClientError, TimeoutError):
+        except GitHubAuthError:
+            return self._abort_reauth()
+        except GitHubError:
             return self.async_abort(reason="cannot_list")
         configured = {n.lower() for n in self._configured}
         candidates = [n for n in available if n.lower() not in configured]
@@ -309,7 +320,8 @@ class GitHubPrivateAppsOptionsFlow(OptionsFlow):
                 supervisor = SupervisorClient(async_get_clientsession(self.hass))
                 installed = await supervisor.installed_addons()
                 secret = self.config_entry.data[CONF_RELAY_SECRET]
-                slugs = {n: await find_store_slug(supervisor, relay_url(secret, n)) for n in chosen}
+                store = await store_slugs(supervisor)
+                slugs = {n: store.get(relay_url(secret, n).lower()) for n in chosen}
                 in_use = [
                     n
                     for n, slug in slugs.items()
