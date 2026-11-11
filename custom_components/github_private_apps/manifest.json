@@ -1,14 +1,21 @@
 {
   "domain": "github_private_apps",
   "name": "GitHub Private Apps",
-  "codeowners": ["@Gluxur"],
+  "categories": [
+    "computers_network.cloud_developer_tools"
+  ],
+  "codeowners": [
+    "@Gluxur"
+  ],
   "config_flow": true,
-  "dependencies": ["hassio"],
+  "dependencies": [
+    "hassio"
+  ],
   "documentation": "https://github.com/Gluxur/ha-github-private-apps",
   "integration_type": "service",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/Gluxur/ha-github-private-apps/issues",
   "requirements": [],
   "single_config_entry": true,
-  "version": "1.0.1"
+  "version": "1.0.2"
 }

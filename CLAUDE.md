@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Home Assistant custom integration (HACS, domain `github_private_apps`) that lets the Supervisor install apps (add-ons) from private GitHub repositories without putting a token in the repository URL. Requires a Supervisor (HA OS / Supervised), HA 2025.1+.
+A Home Assistant custom integration (Marketplace/HACS, domain `github_private_apps`) that lets the Supervisor install apps (add-ons) from private GitHub repositories without putting a token in the repository URL. Requires a Supervisor (HA OS / Supervised), HA 2025.1+.
 
 ## Commands
 
@@ -14,7 +14,7 @@ pytest                                 # all tests (asyncio_mode = auto, see pyt
 pytest tests/test_relay.py::test_rejections   # single test
 ```
 
-CI (`.github/workflows/validate.yml`) runs HACS validation, hassfest and pytest on Python 3.13. Hassfest checks `manifest.json`, `strings.json` and translations, so keep `strings.json`, `translations/en.json` and `translations/fr.json` in sync when adding error/abort keys.
+CI (`.github/workflows/validate.yml`) runs HACS validation, hassfest and pytest on Python 3.13. Hassfest checks `manifest.json` and translations. As a custom integration there is no `strings.json` (the Marketplace guide says not to ship one): `translations/en.json` is the source, keep `translations/fr.json` in sync when adding error/abort keys.
 
 Home Assistant is **not** installed in the test environment. Only `relay.py` is tested: the test loads it by file path (`importlib`), bypassing the package `__init__.py` which imports `homeassistant`. Keep `relay.py` free of Home Assistant and relative imports. Other modules can only be syntax-checked locally (`python -m py_compile`).
 

@@ -1,6 +1,6 @@
 # GitHub Private Apps for Home Assistant
 
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories)
+[![Marketplace](https://img.shields.io/badge/Marketplace-custom%20repository-41BDF5.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
 [![Validate](https://github.com/Gluxur/ha-github-private-apps/actions/workflows/validate.yml/badge.svg)](https://github.com/Gluxur/ha-github-private-apps/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -54,15 +54,17 @@ The `ghcr.io` registry credential will then belong to the dedicated account. If 
 
 ## Install
 
-[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
 
-Or: HACS → ⋮ → Custom repositories → add `https://github.com/Gluxur/ha-github-private-apps` as *Integration*, install **GitHub Private Apps**, restart Home Assistant.
+The button opens the repository in the **Marketplace** (Home Assistant 2026.11 and newer) or in **HACS** (older versions). If it is not known yet, accept adding it as a custom repository, then install **GitHub Private Apps**. With the Marketplace, no restart is needed for the first install; with HACS, restart Home Assistant.
 
 Or copy `custom_components/github_private_apps` into `/config/custom_components/` and restart.
 
 ## Configure
 
-Settings → Devices & services → **Add integration** → **GitHub Private Apps**:
+[![Open your Home Assistant instance and start setting up GitHub Private Apps.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=github_private_apps)
+
+Or: Settings → Devices & services → **Add integration** → **GitHub Private Apps**:
 
 1. Choose **Sign in with a code**, open the link shown, enter the code and approve (or paste a token).
 2. Pick your private app repositories (repositories with a `repository.yaml` at the root).
@@ -107,7 +109,7 @@ After that, the slug never changes again.
 
 ## Uninstall
 
-Remove the integration in Settings → Devices & services. Its repositories are removed from the app store, except those whose apps are still installed (uninstall those apps first if you want the repository gone). Then remove the integration from HACS.
+Remove the integration in Settings → Devices & services. Its repositories are removed from the app store, except those whose apps are still installed (uninstall those apps first if you want the repository gone). Then remove the integration from the Marketplace (or HACS).
 
 ## Disclaimer
 
