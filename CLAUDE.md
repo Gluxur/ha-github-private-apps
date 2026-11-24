@@ -16,6 +16,8 @@ pytest tests/test_relay.py::test_rejections   # single test
 
 CI (`.github/workflows/validate.yml`) runs HACS validation, hassfest and pytest on Python 3.13. Hassfest checks `manifest.json` and translations. As a custom integration there is no `strings.json` (the Marketplace guide says not to ship one): `translations/en.json` is the source, keep `translations/fr.json` in sync when adding error/abort keys.
 
+`.github/workflows/zizmor.yml` audits the workflows with zizmor (SARIF to code scanning) and `.github/dependabot.yml` updates actions and pip test deps weekly. Pin every action by commit SHA with a `# vX.Y.Z` comment and keep `persist-credentials: false` on checkout; check locally with `uvx zizmor --pedantic .github/`.
+
 Home Assistant is **not** installed in the test environment. Only `relay.py` is tested: the test loads it by file path (`importlib`), bypassing the package `__init__.py` which imports `homeassistant`. Keep `relay.py` free of Home Assistant and relative imports. Other modules can only be syntax-checked locally (`python -m py_compile`).
 
 ## Architecture
