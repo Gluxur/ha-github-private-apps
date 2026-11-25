@@ -1,6 +1,6 @@
 # GitHub Private Apps for Home Assistant
 
-[![Marketplace](https://img.shields.io/badge/Marketplace-custom%20repository-41BDF5.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
+[![Marketplace](https://img.shields.io/badge/Marketplace-available-41BDF5.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
 [![Validate](https://github.com/Gluxur/ha-github-private-apps/actions/workflows/validate.yml/badge.svg)](https://github.com/Gluxur/ha-github-private-apps/actions/workflows/validate.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -56,7 +56,9 @@ The `ghcr.io` registry credential will then belong to the dedicated account. If 
 
 [![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Gluxur&repository=ha-github-private-apps&category=integration)
 
-The button opens the repository in the **Marketplace** (Home Assistant 2026.11 and newer) or in **HACS** (older versions). If it is not known yet, accept adding it as a custom repository, then install **GitHub Private Apps**. With the Marketplace, no restart is needed for the first install; with HACS, restart Home Assistant.
+**Marketplace** (Home Assistant 2026.11 and newer): GitHub Private Apps is in the catalog. Use the button, or search for **GitHub Private Apps** in the Marketplace, then install it. No restart is needed for the first install.
+
+**HACS** (older versions): the button opens the repository in HACS; accept adding it as a custom repository if asked, install **GitHub Private Apps**, then restart Home Assistant.
 
 Or copy `custom_components/github_private_apps` into `/config/custom_components/` and restart.
 
